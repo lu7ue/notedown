@@ -1,4 +1,5 @@
 import type { Note, NoteSummary } from "../shared/types";
+import type { JSONContent } from "@tiptap/react";
 
 // sends a request to the server and reads the response as json
 // <T> means it can be any type, the function will also return a promise of that type
@@ -26,4 +27,8 @@ export const api = {
   getNote: (id: number) => request<Note>("GET", `/api/notes/${id}`),
   renameNote: (id: number, title: string) =>
     request<NoteSummary>("PATCH", `/api/notes/${id}`, { title }),
+  saveContent: (id: number, content: JSONContent) =>
+    request<NoteSummary>("PATCH", `/api/notes/${id}`, {
+      content_json: content,
+    }),
 };

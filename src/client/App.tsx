@@ -109,6 +109,7 @@ export function App() {
             <Editor
               key={openNote.id}
               content={openNote.content_json as JSONContent}
+              onChange={(doc) => api.saveContent(openNote.id, doc)}
             />
           </>
         ) : (

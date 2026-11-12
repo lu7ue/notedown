@@ -12,7 +12,8 @@ const PORT = 3001;
 const app = express();
 
 // reads the request body as json and puts it into req.body
-app.use(express.json());
+// set the limit to 5MB because a lone note can be bigger than the default 100KB
+app.use(express.json({ limit: "5mb" }));
 
 // a new note starts with an empty editor document
 const EMPTY_DOC = { type: "doc", content: [] };
@@ -65,21 +66,45 @@ app.get("/api/notes/:id", (req, res) => {
   res.json(note);
 });
 
-// rename a note -> patch is used when only one part of a resource is changed (herethe title), while put is used when the whole resource is replaced
+// change the title and/or the content of a note (only the fields in the request are changed)
+// patch is used when only one part of a resource is changed, while put is used when the whole resource is replaced
 app.patch("/api/notes/:id", (req, res) => {
   const id = Number(req.params.id);
-  const title = (req.body.title ?? "").trim() || "Untitled";
-  const result = db
-    .prepare("update notes set title = ?, updated_at = ? where id = ?")
-    .run(title, new Date().toISOString(), id);
-  // run() returns an object with two properties: changes (number of rows changed) and lastInsertRowid (the id of the last inserted row)
-  if (result.changes === 0) {
+  const body = req.body ?? {};
+
+  // only cares about whether the note is there, so just select 1 (doesn't matter what is selected); 1 means yes, undefined means nothing found
+  const exists = db.prepare("select 1 from notes where id = ?").get(id);
+  if (!exists) {
     res.status(404).json({ error: "note not found" });
     return;
   }
+
+  if ("content_json" in body && body.content_json?.type !== "doc") {
+    res.status(400).json({ error: "content_json must be a document" });
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  if ("title" in body) {
+    const title = (body.title ?? "").trim() || "Untitled";
+    db.prepare("update notes set title = ?, updated_at = ? where id = ?").run(
+      title,
+      now,
+      id,
+    );
+  }
+
+  if ("content_json" in body) {
+    db.prepare(
+      "update notes set content_json = ?, updated_at = ? where id = ?",
+    ).run(JSON.stringify(body.content_json), now, id);
+  }
+
   const note = db
     .prepare("select id, title, created_at, updated_at from notes where id = ?")
     .get(id) as NoteSummary;
+
   res.json(note);
 });
 

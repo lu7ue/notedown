@@ -10,11 +10,17 @@ const extensions = [
   }),
 ];
 
-export function Editor({ content }: { content: JSONContent }) {
+type Props = {
+  content: JSONContent;
+  onChange: (doc: JSONContent) => void;
+};
+
+export function Editor({ content, onChange }: Props) {
   const editor = useEditor({
     extensions,
     content, // the given content was passed from the parent component
     shouldRerenderOnTransaction: true, // rerender the editor when cursor moves or the contents change
+    onUpdate: ({ editor }) => onChange(editor.getJSON()),
   });
 
   // if the editor is not ready yet, rturn null (nothing is rendered)
