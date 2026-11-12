@@ -11,6 +11,9 @@ const db = openDb("data/notedown.db");
 const PORT = 3001;
 const app = express();
 
+// reads the request body as json and puts it into req.body
+app.use(express.json());
+
 // a new note starts with an empty editor document
 const EMPTY_DOC = { type: "doc", content: [] };
 
@@ -59,6 +62,24 @@ app.get("/api/notes/:id", (req, res) => {
 
   // copy every field of the row, but replace content_json (text) with the parsed object
   const note: Note = { ...row, content_json: JSON.parse(row.content_json) };
+  res.json(note);
+});
+
+// rename a note -> patch is used when only one part of a resource is changed (herethe title), while put is used when the whole resource is replaced
+app.patch("/api/notes/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const title = (req.body.title ?? "").trim() || "Untitled";
+  const result = db
+    .prepare("update notes set title = ?, updated_at = ? where id = ?")
+    .run(title, new Date().toISOString(), id);
+  // run() returns an object with two properties: changes (number of rows changed) and lastInsertRowid (the id of the last inserted row)
+  if (result.changes === 0) {
+    res.status(404).json({ error: "note not found" });
+    return;
+  }
+  const note = db
+    .prepare("select id, title, created_at, updated_at from notes where id = ?")
+    .get(id) as NoteSummary;
   res.json(note);
 });
 

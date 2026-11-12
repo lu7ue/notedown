@@ -6,6 +6,7 @@ export function App() {
   const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
   const [openNote, setOpenNote] = useState<Note | null>(null);
+  const [titleDraft, setTitleDraft] = useState(""); // the content of input field for the title
 
   // reloads the notes list from the server; called when the page opens and after every change
   async function refresh() {
@@ -42,6 +43,24 @@ export function App() {
     };
   }, [selectedNoteId]);
 
+  useEffect(() => {
+    // set the title draft to the open note's title, or an empty string if no note is open
+    setTitleDraft(openNote?.title ?? "");
+  }, [openNote]);
+
+  async function saveTitle() {
+    if (!openNote || titleDraft === openNote.title) return;
+    const updated = await api.renameNote(openNote.id, titleDraft);
+    // check if the open note is still the same one, update its title if so, otherwise do nothing
+    setOpenNote((current) => {
+      if (current !== null && current.id === updated.id) {
+        return { ...current, title: updated.title };
+      }
+      return current;
+    });
+    await refresh();
+  }
+
   return (
     <div className="app">
       {/* sidebar with notes list */}
@@ -74,7 +93,14 @@ export function App() {
         {/* display the title of the note in the top bar, or a hint if no note is selected */}
         {openNote ? (
           <header className="topbar">
-            <strong>{openNote.title}</strong>
+            <input
+              className="title-input"
+              value={titleDraft}
+              aria-label="Note title"
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={saveTitle}
+              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            />
           </header>
         ) : (
           <>
