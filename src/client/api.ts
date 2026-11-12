@@ -12,4 +12,5 @@ async function request<T>(method: string, url: string): Promise<T> {
 // api contains all the functions that can be called to interact with the server
 export const api = {
   listNotes: () => request<NoteSummary[]>("GET", "/api/notes"),
+  createNote: () => request<NoteSummary>("POST", "/api/notes"), // returns only one note so the type is not array
 };
