@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import type { NoteSummary } from "../shared/types";
+import type { Note, NoteSummary } from "../shared/types";
 import { api } from "./api";
 
 export function App() {
   const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
+  const [openNote, setOpenNote] = useState<Note | null>(null);
 
   // reloads the notes list from the server; called when the page opens and after every change
   async function refresh() {
@@ -18,11 +19,28 @@ export function App() {
 
   async function newNote() {
     const note = await api.createNote();
-    // reload the list so the new note shows up
     await refresh();
     // every time a new note is created, it will be selected automatically (highlighted in the list)
     setSelectedNoteId(note.id);
   }
+
+  useEffect(() => {
+    // clear the open note before getting the new one
+    setOpenNote(null);
+
+    if (selectedNoteId === null) return;
+
+    // set a flag to indicate whether the request is outdated (e.g. when the user selects another note before this request finishes)
+    let outdated = false;
+
+    api.getNote(selectedNoteId).then((note) => {
+      if (!outdated) setOpenNote(note);
+    });
+    // react runs this before the effect runs again (another note was selected), so the previous answer is ignored
+    return () => {
+      outdated = true;
+    };
+  }, [selectedNoteId]);
 
   return (
     <div className="app">
@@ -43,6 +61,7 @@ export function App() {
                 "row" + (note.id === selectedNoteId ? " selected" : "")
               }
               style={{ paddingLeft: 8 }}
+              onClick={() => setSelectedNoteId(note.id)}
             >
               <span className="row-label">{note.title}</span>
             </div>
@@ -52,10 +71,19 @@ export function App() {
 
       {/* editor area */}
       <main className="main">
-        <header className="topbar" />
-        <div className="empty">
-          <p className="hint">Select a note, or create a new one.</p>
-        </div>
+        {/* display the title of the note in the top bar, or a hint if no note is selected */}
+        {openNote ? (
+          <header className="topbar">
+            <strong>{openNote.title}</strong>
+          </header>
+        ) : (
+          <>
+            <header className="topbar" />
+            <div className="empty">
+              <p className="hint">Select a note, or create a new one.</p>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );

@@ -7,3 +7,8 @@ export type NoteSummary = {
   created_at: string;
   updated_at: string;
 };
+
+// a full note, including the content
+export type Note = NoteSummary & {
+  content_json: unknown;
+};

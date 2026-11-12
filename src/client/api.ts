@@ -1,4 +1,4 @@
-import type { NoteSummary } from "../shared/types";
+import type { Note, NoteSummary } from "../shared/types";
 
 // <T> means it can be any type, the function will also return a promise of that type
 async function request<T>(method: string, url: string): Promise<T> {
@@ -13,4 +13,5 @@ async function request<T>(method: string, url: string): Promise<T> {
 export const api = {
   listNotes: () => request<NoteSummary[]>("GET", "/api/notes"),
   createNote: () => request<NoteSummary>("POST", "/api/notes"), // returns only one note so the type is not array
+  getNote: (id: number) => request<Note>("GET", `/api/notes/${id}`),
 };

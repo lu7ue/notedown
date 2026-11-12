@@ -1,7 +1,7 @@
 import express from "express";
 import { mkdirSync } from "node:fs";
 import { openDb } from "./db";
-import type { NoteSummary } from "../shared/types";
+import type { Note, NoteSummary } from "../shared/types";
 
 // create a "data" directory, no errors if it already exists (set recursive as true)
 mkdirSync("data", { recursive: true });
@@ -28,17 +28,38 @@ app.get("/api/notes", (_req, res) => {
 app.post("/api/notes", (_req, res) => {
   // get the current time and write it into the created_at and updated_at fields later for the new note
   const now = new Date().toISOString();
-  // prepare the contents of the new note
+
   const result = db
     .prepare(
       "insert into notes(title, content_json, created_at, updated_at) values (?,?,?,?)",
     )
     .run("Untitled", JSON.stringify(EMPTY_DOC), now, now);
-  // write the new note into db by getting the last inserted row id
+  // read the new note back by its id
   const note = db
     .prepare("select id, title, created_at, updated_at from notes where id = ?")
     .get(result.lastInsertRowid) as NoteSummary;
   res.status(201).json(note);
+});
+
+// a row of the notes table
+type NoteRow = NoteSummary & { content_json: string };
+
+app.get("/api/notes/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const row = db
+    .prepare(
+      "select id, title, content_json, created_at, updated_at from notes where id = ?",
+    )
+    .get(id) as NoteRow | undefined;
+
+  if (!row) {
+    res.status(404).json({ error: "note not found" });
+    return;
+  }
+
+  // copy every field of the row, but replace content_json (text) with the parsed object
+  const note: Note = { ...row, content_json: JSON.parse(row.content_json) };
+  res.json(note);
 });
 
 app.listen(PORT, "127.0.0.1", () => {
