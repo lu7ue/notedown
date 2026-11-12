@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Note, NoteSummary } from "../shared/types";
 import { api } from "./api";
+import type { JSONContent } from "@tiptap/react";
+import { Editor } from "./components/Editor";
 
 export function App() {
   const [notes, setNotes] = useState<NoteSummary[]>([]);
@@ -92,16 +94,23 @@ export function App() {
       <main className="main">
         {/* display the title of the note in the top bar, or a hint if no note is selected */}
         {openNote ? (
-          <header className="topbar">
-            <input
-              className="title-input"
-              value={titleDraft}
-              aria-label="Note title"
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onBlur={saveTitle}
-              onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          <>
+            <header className="topbar">
+              <input
+                className="title-input"
+                value={titleDraft}
+                aria-label="Note title"
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={saveTitle}
+                onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+              />
+            </header>
+            {/* show the editor with its sub-component(Toolbar) */}
+            <Editor
+              key={openNote.id}
+              content={openNote.content_json as JSONContent}
             />
-          </header>
+          </>
         ) : (
           <>
             <header className="topbar" />
