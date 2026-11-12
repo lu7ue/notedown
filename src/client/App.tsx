@@ -9,5 +9,20 @@ export function App() {
       .then((data) => setMsg(data.message));
   }, []);
 
-  return <h1>Message from the server: {msg}</h1>;
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <div className="sidebar-actions">
+          <button className="button primary">New note</button>
+        </div>
+      </aside>
+
+      <main className="main">
+        <header className="topbar" />
+        <div className="empty">
+          <p className="hint">Select a note, or create a new one.</p>
+        </div>
+      </main>
+    </div>
+  );
 }
