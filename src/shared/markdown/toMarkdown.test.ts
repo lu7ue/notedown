@@ -20,4 +20,48 @@ describe("toMarkdown", () => {
 
     expect(toMarkdown(doc)).toBe("## Plan\n\nFirst\n\nSecond");
   });
+  it("writes bold, italic, strikethrough and inline code", () => {
+    const doc: DocNode = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "bold", marks: [{ type: "bold" }] },
+            { type: "text", text: " " },
+            { type: "text", text: "italic", marks: [{ type: "italic" }] },
+            { type: "text", text: " " },
+            { type: "text", text: "gone", marks: [{ type: "strike" }] },
+            { type: "text", text: " " },
+            { type: "text", text: "code", marks: [{ type: "code" }] },
+          ],
+        },
+      ],
+    };
+
+    expect(toMarkdown(doc)).toBe("**bold** *italic* ~~gone~~ `code`");
+  });
+
+  it("keeps two styles together and moves spaces outside the marks", () => {
+    const doc: DocNode = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Say" },
+            { type: "text", text: " hi ", marks: [{ type: "bold" }] },
+            { type: "text", text: "and " },
+            {
+              type: "text",
+              text: "both",
+              marks: [{ type: "bold" }, { type: "italic" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(toMarkdown(doc)).toBe("Say **hi** and ***both***");
+  });
 });

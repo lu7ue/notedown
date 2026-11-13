@@ -1,5 +1,14 @@
 import type { DocNode } from "./types";
 
+// using an array instead of an object because the order matters
+// inline code is always inside the others (markdown shows everything inside backticks as it is)
+const MARKS = [
+  { type: "code", marker: "`" },
+  { type: "strike", marker: "~~" },
+  { type: "italic", marker: "*" },
+  { type: "bold", marker: "**" },
+];
+
 // turns the editor document into markdown text
 export function toMarkdown(doc: DocNode): string {
   const blocks: string[] = [];
@@ -45,11 +54,46 @@ function inlineToMarkdown(node: DocNode): string {
 
   for (const child of children) {
     if (child.type === "text") {
-      result += child.text ?? "";
+      result += textToMarkdown(child);
     } else if (child.type === "hardBreak") {
       result += "\n";
     }
   }
 
   return result;
+}
+
+// one piece of text, with the markdown for its marks around it
+function textToMarkdown(node: DocNode): string {
+  const text = node.text ?? "";
+  const marks = node.marks ?? [];
+
+  // text with no marks, or only spaces, is written as it is
+  if (marks.length === 0 || text.trim() === "") {
+    return text;
+  }
+
+  // split the text into: spaces before, the middle part, spaces after
+  // "  hi " as shown below:
+  // [0] [1] [2] [3] [4]
+  //          h   i
+  const middle = text.trim(); // "hi"
+  const start = text.indexOf(middle); // [2]
+  const spacesBefore = text.slice(0, start); // from [0] to [2] (not including [2])
+  const spacesAfter = text.slice(start + middle.length); // [2] + length of "hi" (which is 2) = [4], so slice from [4] to the end
+  let result = middle;
+
+  for (const mark of MARKS) {
+    let hasMark = false;
+    for (const nodeMark of marks) {
+      if (nodeMark.type === mark.type) {
+        hasMark = true;
+      }
+    }
+    if (hasMark) {
+      result = mark.marker + result + mark.marker;
+    }
+  }
+
+  return spacesBefore + result + spacesAfter;
 }
