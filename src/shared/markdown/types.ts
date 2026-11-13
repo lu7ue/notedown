@@ -28,3 +28,6 @@ export type DocNode = {
   text?: string;
   marks?: { type: string }[];
 };
+
+// where the markdown will be pasted: a .md file such as README, or an issue or comment on GitHub
+export type Mode = "readme" | "issues";

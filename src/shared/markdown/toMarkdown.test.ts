@@ -18,7 +18,7 @@ describe("toMarkdown", () => {
       ],
     };
 
-    expect(toMarkdown(doc)).toBe("## Plan\n\nFirst\n\nSecond");
+    expect(toMarkdown(doc, "readme")).toBe("## Plan\n\nFirst\n\nSecond");
   });
   it("writes bold, italic, strikethrough and inline code", () => {
     const doc: DocNode = {
@@ -39,7 +39,7 @@ describe("toMarkdown", () => {
       ],
     };
 
-    expect(toMarkdown(doc)).toBe("**bold** *italic* ~~gone~~ `code`");
+    expect(toMarkdown(doc, "readme")).toBe("**bold** *italic* ~~gone~~ `code`");
   });
 
   it("keeps two styles together and moves spaces outside the marks", () => {
@@ -62,6 +62,45 @@ describe("toMarkdown", () => {
       ],
     };
 
-    expect(toMarkdown(doc)).toBe("Say **hi** and ***both***");
+    expect(toMarkdown(doc, "readme")).toBe("Say **hi** and ***both***");
+  });
+
+  it("writes a line break differently for README and Issues", () => {
+    const doc: DocNode = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "one" },
+            { type: "hardBreak" },
+            { type: "text", text: "two" },
+          ],
+        },
+      ],
+    };
+
+    expect(toMarkdown(doc, "readme")).toBe("one\\\ntwo");
+    expect(toMarkdown(doc, "issues")).toBe("one\ntwo");
+  });
+
+  it("leaves out line breaks at the start and end of a paragraph", () => {
+    const doc: DocNode = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "hardBreak" },
+            { type: "text", text: "one" },
+            { type: "hardBreak" },
+            { type: "hardBreak" },
+          ],
+        },
+      ],
+    };
+
+    expect(toMarkdown(doc, "readme")).toBe("one");
+    expect(toMarkdown(doc, "issues")).toBe("one");
   });
 });

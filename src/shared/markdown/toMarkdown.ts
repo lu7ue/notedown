@@ -1,4 +1,4 @@
-import type { DocNode } from "./types";
+import type { DocNode, Mode } from "./types";
 
 // using an array instead of an object because the order matters
 // inline code is always inside the others (markdown shows everything inside backticks as it is)
@@ -10,13 +10,13 @@ const MARKS = [
 ];
 
 // turns the editor document into markdown text
-export function toMarkdown(doc: DocNode): string {
+export function toMarkdown(doc: DocNode, mode: Mode): string {
   const blocks: string[] = [];
   const nodes = doc.content ?? [];
 
   // convert each block to markdown
   for (const node of nodes) {
-    const block = blockToMarkdown(node);
+    const block = blockToMarkdown(node, mode);
 
     // skip empty blocks, so empty paragraphs do not add extra blank lines
     if (block.trim() !== "") {
@@ -28,13 +28,13 @@ export function toMarkdown(doc: DocNode): string {
   return blocks.join("\n\n");
 }
 
-function blockToMarkdown(node: DocNode): string {
+function blockToMarkdown(node: DocNode, mode: Mode): string {
   if (node.type === "paragraph") {
-    return inlineToMarkdown(node);
+    return inlineToMarkdown(node, mode);
   }
 
   if (node.type === "heading") {
-    const text = inlineToMarkdown(node);
+    const text = inlineToMarkdown(node, mode);
     // an empty heading would be a lone "#", so leave it out like an empty paragraph
     if (text.trim() === "") {
       return "";
@@ -47,16 +47,53 @@ function blockToMarkdown(node: DocNode): string {
   return "";
 }
 
-// joins the text inside a paragraph or heading
-function inlineToMarkdown(node: DocNode): string {
-  let result = "";
+// function inlineToMarkdown is for joining the text inside a paragraph or heading
+
+// a children node looks like this:
+// [0] line break
+// [1] **Hoi**
+// [2] line break
+// [3] Hoi
+// [4] line break
+
+// first, find the text from top to bottom -> [0] is line break, keep going, [1] is not line break, stop, first is [1]
+// then, find the text from bottom to top -> [4] is line break, keep going, [3] is not line break, stop, last is [3]
+
+// handle the text from the first to the last -> [1] + [2] + [3]
+// if "readme mode" -> add "\\\n" for line breaks, so the result is "**Hoi**\\\nHoi"
+// if "issues mode" -> add "\n" for line breaks, so the result is "**Hoi**\nHoi"
+
+// ps. one "\" won't work because it will be interpreted as an escape character, so add one more "\" to make it "\"
+
+function inlineToMarkdown(node: DocNode, mode: Mode): string {
   const children = node.content ?? [];
 
-  for (const child of children) {
+  // leave out line breaks at the very start and end, they would only add empty lines
+  let first = 0;
+  while (first < children.length && children[first].type === "hardBreak") {
+    first++;
+  }
+  let last = children.length - 1;
+  while (last >= first && children[last].type === "hardBreak") {
+    last--;
+  }
+
+  let result = "";
+  for (let i = first; i <= last; i++) {
+    const child = children[i];
+
     if (child.type === "text") {
       result += textToMarkdown(child);
     } else if (child.type === "hardBreak") {
-      result += "\n";
+      if (node.type === "heading") {
+        result += " ";
+      } else if (mode === "readme") {
+        // a single newline is ignored in .md files, a backslash at the end of the line makes it a break
+        result += "\\\n";
+      } else {
+        // issues and comments on GitHub show a single newline as a break
+        result += "\n";
+      }
     }
   }
 
