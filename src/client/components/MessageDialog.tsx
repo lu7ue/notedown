@@ -4,7 +4,7 @@ type Props = {
   onClose: () => void;
 };
 
-export function ErrorMessageDialog({ title, message, onClose }: Props) {
+export function MessageDialog({ title, message, onClose }: Props) {
   return (
     <div className="dialog-backdrop" onClick={onClose}>
       <div className="dialog" onClick={(e) => e.stopPropagation()}>

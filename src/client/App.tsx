@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Note, NoteSummary } from "../shared/types";
 import { api } from "./api";
 import type { JSONContent } from "@tiptap/react";
@@ -7,13 +7,21 @@ import { useAutosave, type SaveStatus } from "./hooks/useAutosave";
 import { Icon } from "./components/Icon";
 import { ItemMenu } from "./components/ItemMenu";
 import { ConfirmDialog } from "./components/ConfirmDialog";
-import { ErrorMessageDialog } from "./components/ErrorMessageDialog";
+import { MessageDialog } from "./components/MessageDialog";
+import { ExportMenu } from "./components/ExportMenu";
+import { toMarkdown } from "../shared/markdown/toMarkdown";
+import type { DocNode, Mode } from "../shared/markdown/types";
 
 const STATUS_TEXT: Record<SaveStatus, string> = {
   idle: "",
   saving: "Saving…",
   saved: "Saved",
   error: "Could not save",
+};
+
+const MODE_NAMES: Record<Mode, string> = {
+  readme: "README",
+  issues: "Issues",
 };
 
 export function App() {
@@ -29,6 +37,11 @@ export function App() {
   } | null>(null);
   const [noteToDelete, setNoteToDelete] = useState<NoteSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const latestDoc = useRef<JSONContent | null>(null);
+  const [exportResult, setExportResult] = useState<{
+    mode: Mode;
+    copied: boolean;
+  } | null>(null);
 
   function showError(err: unknown) {
     setErrorMessage(err instanceof Error ? err.message : String(err));
@@ -78,6 +91,20 @@ export function App() {
     await refresh();
   }
 
+  async function exportMarkdown(mode: Mode) {
+    if (latestDoc.current === null) return;
+
+    // getJSON() gives every node a type, so the editor's document fits DocNode
+    const markdown = toMarkdown(latestDoc.current as DocNode, mode);
+
+    try {
+      await navigator.clipboard.writeText(markdown);
+      setExportResult({ mode, copied: true });
+    } catch {
+      setExportResult({ mode, copied: false });
+    }
+  }
+
   useEffect(() => {
     // clear the open note before getting the new one
     setOpenNote(null);
@@ -102,8 +129,9 @@ export function App() {
   }, [selectedNoteId]);
 
   useEffect(() => {
-    // set the title draft to the open note's title, or an empty string if no note is open
     setTitleDraft(openNote?.title ?? "");
+    latestDoc.current =
+      (openNote?.content_json as JSONContent | undefined) ?? null;
   }, [openNote]);
 
   return (
@@ -166,16 +194,22 @@ export function App() {
                   autosave.flush();
                 }}
               />
-              <span className="save-status">
-                {autosave.status === "saved" && <Icon name="check" />}
-                {STATUS_TEXT[autosave.status]}
-              </span>
+              <div className="topbar-right">
+                <span className="save-status">
+                  {autosave.status === "saved" && <Icon name="check" />}
+                  {STATUS_TEXT[autosave.status]}
+                </span>
+                <ExportMenu onExport={exportMarkdown} />
+              </div>
             </header>
             {/* show the editor with its sub-component(Toolbar) */}
             <Editor
               key={openNote.id}
               content={openNote.content_json as JSONContent}
-              onChange={(doc) => autosave.queue({ content_json: doc })}
+              onChange={(doc) => {
+                latestDoc.current = doc;
+                autosave.queue({ content_json: doc });
+              }}
             />
           </>
         ) : (
@@ -214,10 +248,23 @@ export function App() {
 
       {/* show an error message dialog if catch an error when calling the server */}
       {errorMessage && (
-        <ErrorMessageDialog
+        <MessageDialog
           title="Something went wrong"
           message={errorMessage}
           onClose={() => setErrorMessage(null)}
+        />
+      )}
+
+      {/* show a dialog to indicate whether the export was successful or not */}
+      {exportResult && (
+        <MessageDialog
+          title={exportResult.copied ? "Copied" : "Could not copy"}
+          message={
+            exportResult.copied
+              ? `The ${MODE_NAMES[exportResult.mode]} markdown is on your clipboard.`
+              : "The browser did not allow access to the clipboard."
+          }
+          onClose={() => setExportResult(null)}
         />
       )}
     </div>
