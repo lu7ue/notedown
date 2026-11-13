@@ -25,6 +25,10 @@ async function request<T>(
   // res.ok will be true if the status code is 200-299
   if (!res.ok)
     throw new Error(`${method} ${url} failed with status ${res.status}`);
+
+  // 204 means success with no body, so there is no json to read
+  if (res.status === 204) return undefined as T;
+
   return res.json();
 }
 
@@ -35,4 +39,5 @@ export const api = {
   getNote: (id: number) => request<Note>("GET", `/api/notes/${id}`),
   updateNote: (id: number, changes: NoteChanges, keepalive = false) =>
     request<NoteSummary>("PATCH", `/api/notes/${id}`, changes, keepalive),
+  deleteNote: (id: number) => request<void>("DELETE", `/api/notes/${id}`),
 };

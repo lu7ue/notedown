@@ -64,5 +64,11 @@ export function useAutosave(noteId: number | null, onSaved: () => void) {
     if (noteId !== null) send(noteId);
   }
 
-  return { queue, flush, status };
+  // when user discards the changes (e.g. by deleting the note), cancel the timer and forget the changes
+  function discard() {
+    window.clearTimeout(timer.current);
+    pending.current = {};
+  }
+
+  return { queue, flush, discard, status };
 }

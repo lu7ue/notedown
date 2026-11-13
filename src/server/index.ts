@@ -108,6 +108,16 @@ app.patch("/api/notes/:id", (req, res) => {
   res.json(note);
 });
 
+app.delete("/api/notes/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const result = db.prepare("delete from notes where id = ?").run(id);
+  if (result.changes === 0) {
+    res.status(404).json({ error: "note not found" });
+    return;
+  }
+  res.status(204).end();
+});
+
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`Server running on http://127.0.0.1:${PORT}`);
 });
