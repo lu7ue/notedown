@@ -3,12 +3,22 @@ import type { Note, NoteSummary } from "../shared/types";
 import { api } from "./api";
 import type { JSONContent } from "@tiptap/react";
 import { Editor } from "./components/Editor";
+import { useAutosave, type SaveStatus } from "./hooks/useAutosave";
+import { Icon } from "./components/Icon";
+
+const STATUS_TEXT: Record<SaveStatus, string> = {
+  idle: "",
+  saving: "Saving…",
+  saved: "Saved",
+  error: "Could not save",
+};
 
 export function App() {
   const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
   const [openNote, setOpenNote] = useState<Note | null>(null);
   const [titleDraft, setTitleDraft] = useState(""); // the content of input field for the title
+  const autosave = useAutosave(openNote?.id ?? null, refresh);
 
   // reloads the notes list from the server; called when the page opens and after every change
   async function refresh() {
@@ -50,19 +60,6 @@ export function App() {
     setTitleDraft(openNote?.title ?? "");
   }, [openNote]);
 
-  async function saveTitle() {
-    if (!openNote || titleDraft === openNote.title) return;
-    const updated = await api.renameNote(openNote.id, titleDraft);
-    // check if the open note is still the same one, update its title if so, otherwise do nothing
-    setOpenNote((current) => {
-      if (current !== null && current.id === updated.id) {
-        return { ...current, title: updated.title };
-      }
-      return current;
-    });
-    await refresh();
-  }
-
   return (
     <div className="app">
       {/* sidebar with notes list */}
@@ -100,16 +97,26 @@ export function App() {
                 className="title-input"
                 value={titleDraft}
                 aria-label="Note title"
-                onChange={(e) => setTitleDraft(e.target.value)}
-                onBlur={saveTitle}
+                onChange={(e) => {
+                  setTitleDraft(e.target.value);
+                  autosave.queue({ title: e.target.value });
+                }}
                 onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                onBlur={() => {
+                  if (titleDraft.trim() === "") setTitleDraft("Untitled");
+                  autosave.flush();
+                }}
               />
+              <span className="save-status">
+                {autosave.status === "saved" && <Icon name="check" />}
+                {STATUS_TEXT[autosave.status]}
+              </span>
             </header>
             {/* show the editor with its sub-component(Toolbar) */}
             <Editor
               key={openNote.id}
               content={openNote.content_json as JSONContent}
-              onChange={(doc) => api.saveContent(openNote.id, doc)}
+              onChange={(doc) => autosave.queue({ content_json: doc })}
             />
           </>
         ) : (
