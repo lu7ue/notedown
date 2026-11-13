@@ -7,6 +7,7 @@ import { useAutosave, type SaveStatus } from "./hooks/useAutosave";
 import { Icon } from "./components/Icon";
 import { ItemMenu } from "./components/ItemMenu";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { ErrorMessageDialog } from "./components/ErrorMessageDialog";
 
 const STATUS_TEXT: Record<SaveStatus, string> = {
   idle: "",
@@ -27,10 +28,19 @@ export function App() {
     left: number;
   } | null>(null);
   const [noteToDelete, setNoteToDelete] = useState<NoteSummary | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  function showError(err: unknown) {
+    setErrorMessage(err instanceof Error ? err.message : String(err));
+  }
 
   // reloads the notes list from the server; called when the page opens and after every change
   async function refresh() {
-    setNotes(await api.listNotes());
+    try {
+      setNotes(await api.listNotes());
+    } catch (err) {
+      showError(err);
+    }
   }
 
   // [] means this effect will only run once when the page opens
@@ -39,10 +49,14 @@ export function App() {
   }, []);
 
   async function newNote() {
-    const note = await api.createNote();
-    await refresh();
-    // every time a new note is created, it will be selected automatically (highlighted in the list)
-    setSelectedNoteId(note.id);
+    try {
+      const note = await api.createNote();
+      await refresh();
+      // every time a new note is created, it will be selected automatically (highlighted in the list)
+      setSelectedNoteId(note.id);
+    } catch (err) {
+      showError(err);
+    }
   }
 
   async function deleteNote(note: NoteSummary) {
@@ -54,7 +68,13 @@ export function App() {
       autosave.discard();
       setSelectedNoteId(null);
     }
-    await api.deleteNote(note.id);
+
+    try {
+      await api.deleteNote(note.id);
+    } catch (err) {
+      showError(err);
+    }
+
     await refresh();
   }
 
@@ -67,9 +87,14 @@ export function App() {
     // set a flag to indicate whether the request is outdated (e.g. when the user selects another note before this request finishes)
     let outdated = false;
 
-    api.getNote(selectedNoteId).then((note) => {
-      if (!outdated) setOpenNote(note);
-    });
+    api
+      .getNote(selectedNoteId)
+      .then((note) => {
+        if (!outdated) setOpenNote(note);
+      })
+      .catch((err) => {
+        if (!outdated) showError(err);
+      });
     // react runs this before the effect runs again (another note was selected), so the previous answer is ignored
     return () => {
       outdated = true;
@@ -184,6 +209,15 @@ export function App() {
           confirmLabel="Delete"
           onConfirm={() => deleteNote(noteToDelete)}
           onCancel={() => setNoteToDelete(null)}
+        />
+      )}
+
+      {/* show an error message dialog if catch an error when calling the server */}
+      {errorMessage && (
+        <ErrorMessageDialog
+          title="Something went wrong"
+          message={errorMessage}
+          onClose={() => setErrorMessage(null)}
         />
       )}
     </div>

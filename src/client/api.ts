@@ -15,16 +15,30 @@ async function request<T>(
   body?: unknown,
   keepalive = false, // if true, the request will be sent even if the page is being closed
 ): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    headers:
-      body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    keepalive,
-  });
-  // res.ok will be true if the status code is 200-299
-  if (!res.ok)
-    throw new Error(`${method} ${url} failed with status ${res.status}`);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers:
+        body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      keepalive,
+    });
+  } catch {
+    // fetch only fails like this when there is no answer at all, for example the server is not running
+    throw new Error("Could not reach the server");
+  }
+
+  if (!res.ok) {
+    let message = `${method} ${url} failed with status ${res.status}`;
+    try {
+      const data = await res.json();
+      if (typeof data?.error === "string") message = data.error;
+    } catch {
+      // the answer was not json, so keep the general message
+    }
+    throw new Error(message);
+  }
 
   // 204 means success with no body, so there is no json to read
   if (res.status === 204) return undefined as T;

@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type ErrorRequestHandler } from "express";
 import { mkdirSync } from "node:fs";
 import { openDb } from "./db";
 import type { Note, NoteSummary } from "../shared/types";
@@ -72,22 +72,32 @@ app.patch("/api/notes/:id", (req, res) => {
   const id = Number(req.params.id);
   const body = req.body ?? {};
 
-  // only cares about whether the note is there, so just select 1 (doesn't matter what is selected); 1 means yes, undefined means nothing found
-  const exists = db.prepare("select 1 from notes where id = ?").get(id);
-  if (!exists) {
-    res.status(404).json({ error: "note not found" });
+  if (Array.isArray(body)) {
+    res.status(400).json({ error: "The request body must be an object" });
+    return;
+  }
+
+  if ("title" in body && typeof body.title !== "string") {
+    res.status(400).json({ error: "Title must be text" });
     return;
   }
 
   if ("content_json" in body && body.content_json?.type !== "doc") {
-    res.status(400).json({ error: "content_json must be a document" });
+    res.status(400).json({ error: "Content must be a document" });
+    return;
+  }
+
+  // only cares about whether the note is there, so just select 1 (doesn't matter what is selected); 1 means yes, undefined means nothing found
+  const exists = db.prepare("select 1 from notes where id = ?").get(id);
+  if (!exists) {
+    res.status(404).json({ error: "Note not found" });
     return;
   }
 
   const now = new Date().toISOString();
 
   if ("title" in body) {
-    const title = (body.title ?? "").trim() || "Untitled";
+    const title = body.title.trim() || "Untitled";
     db.prepare("update notes set title = ?, updated_at = ? where id = ?").run(
       title,
       now,
@@ -117,6 +127,19 @@ app.delete("/api/notes/:id", (req, res) => {
   }
   res.status(204).end();
 });
+
+// every error that a route above did not handle will be handled here, and the client will get a JSON response with an error message
+const handleError: ErrorRequestHandler = (err, _req, res, _next) => {
+  const status = typeof err?.status === "number" ? err.status : 500;
+  if (status >= 500) console.error(err);
+
+  let message = "Something went wrong on the server";
+  if (status === 413) message = "The note is too large to save";
+  else if (status < 500) message = "The request body is not valid JSON";
+
+  res.status(status).json({ error: message });
+};
+app.use(handleError);
 
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`Server running on http://127.0.0.1:${PORT}`);
